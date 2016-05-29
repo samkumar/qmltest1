@@ -4,32 +4,86 @@
 #include <QQuickWindow>
 #include <QOpenGLContext>
 #include <QOpenGLFramebufferObjectFormat>
+#include <QOpenGLFunctions>
 #include <iostream>
 
-class TimeRenderer : public QQuickFramebufferObject::Renderer
+/*
+ * Based on the tutorial at https://www.khronos.org/assets/uploads/books/openglr_es_20_programming_guide_sample.pdf.
+ *
+ */
+class TimeRenderer : public QQuickFramebufferObject::Renderer, protected QOpenGLFunctions
 {
+private:
+    GLuint loadShader(GLenum type, const char* shaderSrc)
+    {
+        GLuint shader;
+        GLint compiled;
+
+        // Create the shader object
+        shader = this->glCreateShader(type);
+
+        if (shader == 0)
+        {
+            std::cout << "shader is 0" << std::endl;
+            exit(1);
+        }
+
+        this->glShaderSource(shader, 1, &shaderSrc, nullptr);
+        this->glCompileShader(shader);
+        this->glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+
+        if (!compiled)
+        {
+            std::cout << "shader failed to compile" << std::endl;
+            exit(1);
+        }
+        std::cout << "shader compiled" << std::endl;
+
+        return shader;
+    }
+
 public:
     TimeRenderer(const TimeComponent* tc)
     {
         this->tc = tc;
+        this->initializeOpenGLFunctions();
 
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
-        glShadeModel(GL_SMOOTH);
-        glEnable(GL_LIGHTING);
-        glEnable(GL_LIGHT0);
+        char vShaderStr[] =
+                "attribute vec4 vPosition;      \n"
+                "void main()                    \n"
+                "{                              \n"
+                "    gl_Position = vPosition;   \n"
+                "}                              \n";
 
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-    #ifdef QT_OPENGL_ES_1
-        glOrthof(-2, +2, -2, +2, 1.0, 15.0);
-    #else
-        glOrtho(-2, +2, -2, +2, 1.0, 15.0);
-    #endif
-        glMatrixMode(GL_MODELVIEW);
+        char fShaderStr[] =
+                "void main()                    \n"
+                "{                              \n"
+                "    gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);   \n"
+                "}                              \n";
 
-        static GLfloat lightPosition[4] = { 0, 0, 10, 1 };
-        glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
+        GLuint vertexShader = this->loadShader(GL_VERTEX_SHADER, vShaderStr);
+        GLuint fragmentShader = this->loadShader(GL_FRAGMENT_SHADER, fShaderStr);
+        programObject = glCreateProgram();
+
+        if (programObject == 0) {
+            std::cout << "Could not create program object" << std::endl;
+            exit(1);
+        }
+
+        this->glAttachShader(programObject, vertexShader);
+        this->glAttachShader(programObject, fragmentShader);
+
+        this->glBindAttribLocation(programObject,  0, "vPosition");
+
+        this->glLinkProgram(programObject);
+
+        GLint linked;
+        this->glGetProgramiv(programObject, GL_LINK_STATUS, &linked);
+
+        if (!linked) {
+            std::cout << "Program was not linked" << std::endl;
+            exit(1);
+        }
     }
 
     QOpenGLFramebufferObject* createFramebufferObject(const QSize &size)
@@ -43,17 +97,13 @@ public:
     void synchronize(QQuickFramebufferObject *item)
     {
         std::cout << "synchronizing" << std::endl;
-        //this->tc->window()->resetOpenGLState();
     }
 
     void render()
     {
-        /* Got these three lines from http://vtk.1045678.n5.nabble.com/Integrating-with-Qt-Quick-by-rendering-VTK-to-a-Framebuffer-Object-FBO-td5727165.html */
-        glUseProgram(0);          // crucial for the cone to show up at all after the first render
-        glDisable(GL_DEPTH_TEST); // depth buffer fighting between the cone and the background without this
-        glDisable(GL_BLEND);      // doesn't seem crucial (?) but it is one of the differences that showed up in apitrace analysis
+        this->initializeOpenGLFunctions();
 
-        glClearColor(0.1f, 0.1f, 0.2f, 0.8f);
+        this->glUseProgram(this->programObject);
 
         int width = this->framebufferObject()->width();
         int height = this->framebufferObject()->height();
@@ -62,13 +112,24 @@ public:
 
         std::cout << currContext << std::endl;
 
-        std::cout << "render " << width << " " << height << std::endl;
+        std::cout << "rendering " << width << " " << height << std::endl;
 
         int side = qMin(width, height);
-        glViewport((width - side) / 2, (height - side) / 2, side, side);
+        this->glViewport((width - side) / 2, (height - side) / 2, side, side);
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glLoadIdentity();
+        this->glClearColor(0.1f, 0.1f, 0.2f, 0.8f);
+        this->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        GLfloat vVertices[] = {0.0f, 0.5f, 0.0f,
+        -0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f};
+
+        this->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vVertices);
+        this->glEnableVertexAttribArray(0);
+
+        this->glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        /*glLoadIdentity();
         glTranslatef(0, 0, -10);
 
         // Draw
@@ -77,12 +138,13 @@ public:
         glVertex3f(-1,-1,0);
         glVertex3f(1,-1,0);
         glVertex3f(0,0,1.2);
-        glEnd();
+        glEnd();*/
 
         this->tc->window()->resetOpenGLState();
     }
 
     const TimeComponent* tc;
+    GLuint programObject;
 };
 
 TimeComponent::TimeComponent()
