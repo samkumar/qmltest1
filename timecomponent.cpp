@@ -13,11 +13,23 @@ public:
     {
         this->tc = tc;
 
-        /*glEnable(GL_DEPTH_TEST);
+        glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
         glShadeModel(GL_SMOOTH);
         glEnable(GL_LIGHTING);
-        glEnable(GL_LIGHT0);*/
+        glEnable(GL_LIGHT0);
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+    #ifdef QT_OPENGL_ES_1
+        glOrthof(-2, +2, -2, +2, 1.0, 15.0);
+    #else
+        glOrtho(-2, +2, -2, +2, 1.0, 15.0);
+    #endif
+        glMatrixMode(GL_MODELVIEW);
+
+        static GLfloat lightPosition[4] = { 0, 0, 10, 1 };
+        glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
     }
 
     QOpenGLFramebufferObject* createFramebufferObject(const QSize &size)
@@ -41,20 +53,7 @@ public:
         glDisable(GL_DEPTH_TEST); // depth buffer fighting between the cone and the background without this
         glDisable(GL_BLEND);      // doesn't seem crucial (?) but it is one of the differences that showed up in apitrace analysis
 
-
         glClearColor(0.1f, 0.1f, 0.2f, 0.8f);
-
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-    #ifdef QT_OPENGL_ES_1
-        glOrthof(-2, +2, -2, +2, 1.0, 15.0);
-    #else
-        glOrtho(-2, +2, -2, +2, 1.0, 15.0);
-    #endif
-        glMatrixMode(GL_MODELVIEW);
-
-        static GLfloat lightPosition[4] = { 0, 0, 10, 1 };
-        glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
 
         int width = this->framebufferObject()->width();
         int height = this->framebufferObject()->height();
@@ -81,28 +80,6 @@ public:
         glEnd();
 
         this->tc->window()->resetOpenGLState();
-
-        /*int width = 1, height = 1;
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glColor4f(0.0, 1.0, 0.0, 0.8);
-        glBegin(GL_QUADS);
-        glVertex2f(0, 0);
-        glVertex2f(width, 0);
-        glVertex2f(width, height);
-        glVertex2f(0, height);
-        glEnd();
-
-        glLineWidth(2.5);
-        glColor4f(0.0, 0.0, 0.0, 1.0);
-        glBegin(GL_LINES);
-        glVertex2f(0, 0);
-        glVertex2f(width, height);
-        glVertex2f(width, 0);
-        glVertex2f(0, height);
-        glEnd();
-
-        update();*/
     }
 
     const TimeComponent* tc;
