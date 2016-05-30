@@ -50,6 +50,11 @@ public:
         this->zoom = 1.0f;
         this->initializeOpenGLFunctions();
 
+        this->glGenBuffers(1, &vbo);
+        this->glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        this->glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(GLfloat), vVertices, GL_STATIC_DRAW);
+        this->glBindBuffer(GL_ARRAY_BUFFER, 0);
+
         char vShaderStr[] =
                 "attribute vec4 vPosition;      \n"
                 "uniform float xOffset;         \n"
@@ -130,21 +135,12 @@ public:
         GLint zoomLoc = this->glGetUniformLocation(this->programObject, "zoom");
         this->glUniform1f(zoomLoc, this->zoom);
 
-        this->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vVertices);
+        this->glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        this->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
         this->glEnableVertexAttribArray(0);
+        this->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         this->glDrawArrays(GL_TRIANGLES, 0, 3);
-
-        /*glLoadIdentity();
-        glTranslatef(0, 0, -10);
-
-        // Draw
-        glBegin(GL_TRIANGLES);
-        glNormal3f(0,-1,0.707);
-        glVertex3f(-1,-1,0);
-        glVertex3f(1,-1,0);
-        glVertex3f(0,0,1.2);
-        glEnd();*/
 
         this->tc->window()->resetOpenGLState();
     }
@@ -156,6 +152,7 @@ public:
     GLfloat vVertices[9] = {0.0f, 0.5f, 0.0f,
                             -0.5f, -0.5f, 0.0f,
                             0.5f, -0.5f, 0.0f};
+    GLuint vbo;
 };
 
 TimeComponent::TimeComponent()

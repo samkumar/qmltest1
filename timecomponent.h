@@ -13,9 +13,9 @@ public:
     /*void touchEvent(QTouchEvent* event);
     void mouseMoveEvent(QMouseEvent* event);*/
 
-    float zoom;
-    float oldzoom;
-    int x;
+    float zoom = 1.0f;
+    float oldzoom = 1.0f;
+    int x = 0;
 
 signals:
 
